@@ -1,4 +1,32 @@
-#Python
+import win32com.client
+import os
+import time
 
-py --version
-Python pip install
+excel_file = r"C:\test\PowerQuery_Join_Test_Workbook.xlsx"
+
+if not os.path.exists(excel_file):
+    raise FileNotFoundError(f"File not found: {excel_file}")
+
+excel = win32com.client.Dispatch("Excel.Application")
+excel.Visible = True
+excel.DisplayAlerts = False
+
+try:
+    wb = excel.Workbooks.Open(excel_file)
+
+    print("Refreshing Power Query...")
+    wb.RefreshAll()
+
+    excel.CalculateUntilAsyncQueriesDone()
+    time.sleep(5)
+
+    wb.Save()
+    wb.Close()
+
+    print("Power Query refreshed and workbook saved successfully.")
+
+except Exception as e:
+    print("Error:", e)
+
+finally:
+    excel.Quit()
