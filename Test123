@@ -1,8 +1,10 @@
+The easiest and most reliable way is to use the OneDrive-synced local path, not the browser URL.
+
 import win32com.client
 import os
 import time
 
-excel_file = r"C:\test\PowerQuery_Join_Test_Workbook.xlsx"
+excel_file = r"C:\Users\rajesh.kore\OneDrive - Company & Co, Inc\CRE Reporting\PowerQuery_Join_Test_Workbook.xlsx"
 
 if not os.path.exists(excel_file):
     raise FileNotFoundError(f"File not found: {excel_file}")
@@ -12,22 +14,19 @@ excel.Visible = True
 excel.DisplayAlerts = True
 
 try:
-    print("Opening Excel file...")
+    print("Opening SharePoint synced Excel file...")
     wb = excel.Workbooks.Open(excel_file)
 
     print("Refreshing Power Query...")
     wb.RefreshAll()
 
-    print("Waiting 30 seconds...")
     time.sleep(30)
 
-    print("Saving workbook...")
+    print("Saving workbook back to SharePoint synced folder...")
     wb.Save()
 
-    print("Closing workbook...")
     wb.Close()
-
-    print("Refresh completed successfully.")
+    print("SharePoint file refreshed successfully.")
 
 except Exception as e:
     print("Error:", e)
@@ -35,4 +34,37 @@ except Exception as e:
 finally:
     excel.Quit()
 
-end
+
+
+
+#############
+This works if:
+
+Excel desktop is installed
+OneDrive sync is enabled
+You have edit access
+The file is not open by another user
+The file is fully synced locally
+
+
+#######
+
+Recommended production flow
+SharePoint Excel file
+      ↓
+OneDrive sync local path
+      ↓
+Python opens workbook
+      ↓
+Refresh Power Query
+      ↓
+Save workbook
+      ↓
+OneDrive sync uploads changes back to SharePoint
+
+#####
+Before running, right-click the workbook or folder and select:
+
+Always keep on this device
+
+That prevents cloud-only file issues.
