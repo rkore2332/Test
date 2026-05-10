@@ -9,21 +9,25 @@ if not os.path.exists(excel_file):
 
 excel = win32com.client.Dispatch("Excel.Application")
 excel.Visible = True
-excel.DisplayAlerts = False
+excel.DisplayAlerts = True
 
 try:
+    print("Opening Excel file...")
     wb = excel.Workbooks.Open(excel_file)
 
     print("Refreshing Power Query...")
     wb.RefreshAll()
 
-    excel.CalculateUntilAsyncQueriesDone()
-    time.sleep(5)
+    print("Waiting 30 seconds...")
+    time.sleep(30)
 
+    print("Saving workbook...")
     wb.Save()
+
+    print("Closing workbook...")
     wb.Close()
 
-    print("Power Query refreshed and workbook saved successfully.")
+    print("Refresh completed successfully.")
 
 except Exception as e:
     print("Error:", e)
