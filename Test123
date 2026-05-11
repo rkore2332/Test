@@ -68,3 +68,16 @@ Before running, right-click the workbook or folder and select:
 Always keep on this device
 
 That prevents cloud-only file issues.
+
+#####
+I am currently working on automating a reporting and data refresh process involving Python scripts and Excel Power Query refreshes for CRE reporting workflows.
+
+The automation is designed to:
+
+Reduce manual effort
+Improve reporting consistency
+Automate weekly data refreshes from SharePoint-based source files
+
+To support this initiative, I would like to request access to Windows Task Scheduler (or equivalent scheduling capability) on my machine so the automation can execute on a scheduled basis without manual intervention.
+
+Please let me know if additional approvals or details are required.
