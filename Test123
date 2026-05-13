@@ -81,3 +81,143 @@ Automate weekly data refreshes from SharePoint-based source files
 To support this initiative, I would like to request access to Windows Task Scheduler (or equivalent scheduling capability) on my machine so the automation can execute on a scheduled basis without manual intervention.
 
 Please let me know if additional approvals or details are required.
+
+
+#######
+import win32com.client
+import os
+import time
+from datetime import datetime
+import traceback
+
+# =========================
+# CONFIGURATION
+# =========================
+
+excel_file = r"C:\Users\rajesh.kore\OneDrive - Company & Co, Inc\CRE Reporting\PowerQuery_Join_Test_Workbook.xlsx"
+
+email_to = "recipient@company.com"
+email_cc = ""
+email_subject_success = "SUCCESS: Excel Power Query Refresh Completed"
+email_subject_failure = "FAILED: Excel Power Query Refresh Failed"
+
+# =========================
+# EMAIL FUNCTION
+# =========================
+
+def send_outlook_email(subject, body):
+    outlook = win32com.client.Dispatch("Outlook.Application")
+    mail = outlook.CreateItem(0)
+
+    mail.To = email_to
+    mail.CC = email_cc
+    mail.Subject = subject
+    mail.Body = body
+
+    mail.Send()
+
+# =========================
+# MAIN PROCESS
+# =========================
+
+excel = None
+wb = None
+start_time = datetime.now()
+
+try:
+    if not os.path.exists(excel_file):
+        raise FileNotFoundError(f"File not found: {excel_file}")
+
+    excel = win32com.client.Dispatch("Excel.Application")
+    excel.Visible = True
+    excel.DisplayAlerts = True
+
+    print("Opening SharePoint synced Excel file...")
+    wb = excel.Workbooks.Open(excel_file)
+
+    print("Refreshing Power Query...")
+    wb.RefreshAll()
+
+    time.sleep(30)
+
+    print("Saving workbook back to SharePoint synced folder...")
+    wb.Save()
+
+    wb.Close()
+    wb = None
+
+    end_time = datetime.now()
+    duration = end_time - start_time
+
+    success_body = f"""
+Excel Power Query refresh completed successfully.
+
+File:
+{excel_file}
+
+Start Time:
+{start_time}
+
+End Time:
+{end_time}
+
+Duration:
+{duration}
+
+Status:
+SUCCESS
+"""
+
+    send_outlook_email(email_subject_success, success_body)
+
+    print("SharePoint file refreshed successfully.")
+    print("Success email sent.")
+
+except Exception as e:
+    end_time = datetime.now()
+    duration = end_time - start_time
+
+    error_details = traceback.format_exc()
+
+    failure_body = f"""
+Excel Power Query refresh failed.
+
+File:
+{excel_file}
+
+Start Time:
+{start_time}
+
+End Time:
+{end_time}
+
+Duration:
+{duration}
+
+Status:
+FAILED
+
+Error Message:
+{str(e)}
+
+Full Error Details:
+{error_details}
+"""
+
+    send_outlook_email(email_subject_failure, failure_body)
+
+    print("Error:", e)
+    print("Failure email sent.")
+
+finally:
+    try:
+        if wb is not None:
+            wb.Close(SaveChanges=False)
+    except:
+        pass
+
+    try:
+        if excel is not None:
+            excel.Quit()
+    except:
+        pass
