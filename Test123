@@ -1,1 +1,386 @@
-https://schwab.sharepoint.com/:f:/r/teams/REStratReporting/Shared%20Documents/Occupancy%20Reporting/Archive?csf=1&web=1&e=tjrn7g
+##Yes — implement it as Cloud Flow + Desktop Flow + Python.##
+
+###Final architecture
+Power Automate Cloud
+  → Get SharePoint file content
+  → Run Power Automate Desktop flow
+       → Save file locally
+       → Run Python refresh script
+       → Read refreshed file
+  → Archive old SharePoint file with timestamp
+  → Upload refreshed file back to SharePoint
+  → Send success/failure email
+##############
+1. Convert your SharePoint URLs
+
+Do not use the full URL in Power Automate file path.
+Site Address:
+https://company.sharepoint.com/teams/REStratReporting
+
+File Path:
+/Shared Documents/Occupancy Reporting/Test/PowerQuery_Join_Test_Workbook.xlsx
+Archive folder:
+/Shared Documents/Occupancy Reporting/Archive
+##########
+2. Local folders
+
+Create these folders:
+
+C:\Users\rajesh.kore\OneDrive - company & Co, Inc\Desktop\Power Query Refresh Automation
+C:\Users\rajesh.kore\OneDrive - company & Co, Inc\Desktop\Test Project
+
+Local workbook path: C:\Users\rajesh.kore\OneDrive - company & Co, Inc\Desktop\Power Query Refresh Automation\PowerQuery_Join_Test_Workbook.xlsx
+Python script path: C:\Users\rajesh.kore\OneDrive - company & Co, Inc\Desktop\Test Project\refresh_power_query.py
+
+###
+3. Final Python script
+
+Replace your existing refresh_power_query.py with this version.
+
+import win32com.client
+import os
+import time
+import traceback
+from datetime import datetime
+
+# =========================
+# CONFIGURATION
+# =========================
+
+excel_file = r"C:\Users\rajesh.kore\OneDrive - company & Co, Inc\Desktop\Power Query Refresh Automation\PowerQuery_Join_Test_Workbook.xlsx"
+
+email_to = "recipient@company.com"
+email_cc = ""
+
+# =========================
+# EMAIL FUNCTION
+# =========================
+
+def send_outlook_email(subject, body):
+    outlook = win32com.client.Dispatch("Outlook.Application")
+    mail = outlook.CreateItem(0)
+    mail.To = email_to
+    mail.CC = email_cc
+    mail.Subject = subject
+    mail.Body = body
+    mail.Send()
+
+# =========================
+# MAIN PROCESS
+# =========================
+
+excel = None
+wb = None
+start_time = datetime.now()
+
+try:
+    if not os.path.exists(excel_file):
+        raise FileNotFoundError(f"File not found: {excel_file}")
+
+    excel = win32com.client.Dispatch("Excel.Application")
+    excel.Visible = True
+    excel.DisplayAlerts = True
+
+    print("Opening workbook...")
+    wb = excel.Workbooks.Open(excel_file)
+
+    print("Refreshing Power Query...")
+    wb.RefreshAll()
+
+    excel.CalculateUntilAsyncQueriesDone()
+    time.sleep(10)
+
+    print("Saving refreshed workbook...")
+    wb.Save()
+    wb.Close()
+    wb = None
+
+    end_time = datetime.now()
+    duration = end_time - start_time
+
+    send_outlook_email(
+        "SUCCESS: Power Query Workbook Refresh Completed",
+        f"""
+Power Query workbook refresh completed successfully.
+
+File:
+{excel_file}
+
+Start Time:
+{start_time}
+
+End Time:
+{end_time}
+
+Duration:
+{duration}
+
+Status:
+SUCCESS
+"""
+    )
+
+    print("Refresh completed successfully.")
+
+except Exception as e:
+    end_time = datetime.now()
+    duration = end_time - start_time
+    error_details = traceback.format_exc()
+
+    send_outlook_email(
+        "FAILED: Power Query Workbook Refresh Failed",
+        f"""
+Power Query workbook refresh failed.
+
+File:
+{excel_file}
+
+Start Time:
+{start_time}
+
+End Time:
+{end_time}
+
+Duration:
+{duration}
+
+Status:
+FAILED
+
+Error:
+{str(e)}
+
+Details:
+{error_details}
+"""
+    )
+
+    print("Refresh failed:", e)
+
+finally:
+    try:
+        if wb is not None:
+            wb.Close(SaveChanges=False)
+    except:
+        pass
+
+    try:
+        if excel is not None:
+            excel.Quit()
+    except:
+        pass
+
+
+###############
+4. Power Automate Desktop flow
+
+Open Power Automate Desktop.
+
+Create flow:Refresh PowerQuery Workbook
+
+Desktop flow input
+
+Create input variable:
+
+InputFileContent
+Step A — Write file locally
+
+Add action:
+
+Write binary data to file
+
+Configure:
+
+File path:
+C:\Users\rajesh.kore\OneDrive - company & Co, Inc\Desktop\Power Query Refresh Automation\PowerQuery_Join_Test_Workbook.xlsx
+
+Binary data:
+%InputFileContent%
+If file exists:
+Overwrite
+######
+Step B — Run Python
+
+Add action:
+
+Run DOS command
+
+Command:
+
+py "C:\Users\rajesh.kore\OneDrive - company & Co, Inc\Desktop\Test Project\refresh_power_query.py"
+
+Enable:
+
+Wait for command to complete
+
+######
+Step C — Read refreshed file
+
+Add action:
+
+Read binary data from file
+
+File path:
+
+C:\Users\rajesh.kore\OneDrive - company & Co, Inc\Desktop\Power Query Refresh Automation\PowerQuery_Join_Test_Workbook.xlsx
+
+Store output as:
+
+RefreshedFileContent
+Desktop flow output
+
+Create output variable:
+
+RefreshedFileContent
+Set it to:
+
+%RefreshedFileContent%
+
+Save the desktop flow.
+
+5. Power Automate Cloud flow
+
+Go to:
+
+make.powerautomate.com
+
+Create:
+
+Scheduled cloud flow
+
+Example:
+
+Every Monday 8:00 AM
+
+
+##############
+
+Step 1 — Get SharePoint file content
+
+Add SharePoint action:
+
+Get file content using path
+
+Configure:
+
+Site Address:
+https://company.sharepoint.com/teams/REStratReporting
+
+File Path:
+/Shared Documents/Occupancy Reporting/Test/PowerQuery_Join_Test_Workbook.xlsx
+Step 2 — Run Desktop Flow
+Add action:
+
+Run a flow built with Power Automate for desktop
+
+Select desktop flow:
+
+Refresh PowerQuery Workbook
+
+Pass input:
+
+InputFileContent = File Content
+
+from previous SharePoint step.
+
+Step 3 — Archive old SharePoint file
+
+Add SharePoint action:
+
+Copy file
+Source:
+
+/Shared Documents/Occupancy Reporting/Test/PowerQuery_Join_Test_Workbook.xlsx
+
+Destination folder:
+
+/Shared Documents/Occupancy Reporting/Archive
+
+Destination filename:
+
+PowerQuery_Join_Test_Workbook_@{formatDateTime(utcNow(),'yyyyMMdd_HHmmss')}.xlsx
+
+Step 4 — Update original SharePoint file
+
+Add SharePoint action:
+
+Update file
+
+Configure:
+
+Site Address:
+https://company.sharepoint.com/teams/REStratReporting
+
+File Identifier:
+Use Identifier from Get file content using path / Get file metadata using path
+
+File Content:
+RefreshedFileContent from Desktop Flow
+
+If Update file asks for identifier, add one step before it:
+Get file metadata using path
+
+Path:
+
+/Shared Documents/Occupancy Reporting/Test/PowerQuery_Join_Test_Workbook.xlsx
+
+Then use its Identifier in Update file.
+
+Step 5 — Send success email
+
+Add Outlook action:
+
+Send an email (V2)
+
+Subject:
+
+SUCCESS: Power Query workbook refreshed and uploaded to SharePoint
+
+Body:
+
+The workbook was refreshed successfully.
+
+File:
+PowerQuery_Join_Test_Workbook.xlsx
+
+Archive copy was created with timestamp.
+
+Updated file was uploaded back to:
+Shared Documents/Occupancy Reporting/Test
+
+6. Failure email
+
+For the success email step or a new failure email step:
+
+Click:
+
+...
+Configure run after
+
+Select:
+
+has failed
+has timed out
+
+Subject:
+
+FAILED: Power Query workbook automation failed
+
+Important notes
+
+Your laptop must be:
+
+Powered on
+Connected to internet
+Logged in
+Power Automate Desktop signed in
+Excel desktop installed
+Outlook signed in
+
+Also, because your path contains spaces, always use quotes in DOS commands:
+
+py "C:\Users\rajesh.kore\OneDrive - company & Co, Inc\Desktop\Test Project\refresh_power_query.py"
+
+This design works even when SharePoint sync is blocked.
+
+
